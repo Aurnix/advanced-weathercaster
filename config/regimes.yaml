@@ -1,0 +1,22 @@
+# Climate regime assignment: first matching rule wins, evaluated in order.
+# Boxes are [lat_min, lat_max, lon_min, lon_max]; elevation override noted.
+# Deliberately coarse — regimes are an eval-stratification device, not physics.
+regimes:
+  - name: boreal_subarctic
+    rule: "lat > 55"
+  - name: mountain_west
+    rule: "elev > 1200 and lon < -100"
+  - name: pacific_maritime
+    rule: "lon < -115 and lat < 55"    # west of the crest, non-alpine after rule above
+  - name: gulf_subtropical
+    rule: "lat < 32 and lon > -100"
+  - name: great_plains
+    rule: "-105 < lon < -90 and 32 < lat < 50"
+  - name: ne_continental
+    rule: "lon >= -90 and lat >= 32"   # everything east that isn't gulf
+  - name: other
+    rule: "fallback"                   # stations not matching above; excluded from draw
+
+# Desert flag for the precip-evidence probe floor (config: probe_min_precip_hours_desert)
+desert_boxes:
+  - [31, 40, -117, -104]   # Desert Southwest

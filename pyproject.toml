@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neosager"
+version = "0.1.0"
+description = "Data-driven successor to the 1942 Sager Weathercaster: short-range local forecasting from Sager-class instruments, distilled to a watch-deployable artifact."
+requires-python = ">=3.12"
+dependencies = [
+    "lightgbm>=4.6",
+    "pandas>=3.0",
+    "numpy>=2.0",
+    "scikit-learn>=1.9",
+    "pyarrow>=24.0",
+    "requests>=2.32",
+    "pydantic>=2.10",
+    "pyyaml>=6.0",
+    "matplotlib>=3.10",
+    "shapely>=2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
