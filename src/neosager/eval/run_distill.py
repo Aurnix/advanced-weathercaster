@@ -45,7 +45,11 @@ def run(cfg: Config, manifest: pd.DataFrame, report_name: str) -> Path:
         "logit_scale": 16, "z_range": Z_RANGE, "lut_size": LUT_SIZE,
         "slp_edges": binner.slp_edges.tolist(),
         "d3h_edges": binner.d3h_edges.tolist(),
-        "d12h_edges": binner.d12h_edges.tolist()}}
+        "d12h_edges": binner.d12h_edges.tolist(),
+        "d6h_edges": binner.d6h_edges.tolist(),
+        "d1h_edges": binner.d1h_edges.tolist(),
+        "hf_edges": binner.hf_edges.tolist(),
+        "curv_edges": binner.curv_edges.tolist()}}
     rows = []
     total_bytes = 0
 

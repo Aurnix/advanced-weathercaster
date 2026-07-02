@@ -10,10 +10,10 @@
 | windup_6h  |     0.376 |                0.242 |                0.242 |
 | windup_12h |     0.402 |                0.264 |                0.264 |
 | windup_24h |     0.356 |                0.253 |                0.253 |
-| pfall_6h   |     0.493 |                0.112 |                0.111 |
-| pfall_12h  |     0.409 |                0.062 |                0.063 |
-| pfall_24h  |     0.242 |                0.023 |                0.022 |
+| pfall_6h   |     0.493 |                0.224 |                0.222 |
+| pfall_12h  |     0.409 |                0.145 |                0.145 |
+| pfall_24h  |     0.242 |                0.053 |                0.052 |
 
-**Artifact size: 2404 bytes (2.35 KB) for 9 heads + bin edges** (budget: 32-64 KB).
+**Artifact size: 2515 bytes (2.46 KB) for 9 heads + bin edges** (budget: 32-64 KB).
 
 Artifact written to `D:\neosager-data\artifacts\neosager_tables.json`.
