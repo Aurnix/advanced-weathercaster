@@ -35,6 +35,7 @@ PARAMS = dict(
     bagging_fraction=0.8,
     bagging_freq=1,
     verbosity=-1,
+    num_threads=24,   # leave headroom for downloads etc. (user request)
 )
 
 
