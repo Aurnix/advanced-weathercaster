@@ -25,7 +25,8 @@ def test_low_pressure_falling_is_rain():
 
 def test_mid_pressure_steady_is_fairish():
     z = _z(1015.0, 0.0)
-    assert 8 <= z <= 14
+    assert 1 <= z <= 14          # fair-to-mildly-unsettled band
+    assert _z(1015.0, -2.5) > z  # falling at same pressure is worse
 
 
 def test_falling_worse_than_rising_at_same_pressure():

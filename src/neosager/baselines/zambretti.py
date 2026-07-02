@@ -1,16 +1,17 @@
-"""Faithful Zambretti forecaster (Negretti & Zambra, 1915/1920s dial).
+"""Faithful Zambretti forecaster (Negretti & Zambra dial, 1915/1920s).
 
-Standard algorithm: sea-level pressure is mapped to a Z number 1-26 through
-one of three linear formulas selected by the 3h trend (falling / steady /
-rising, thresholds +/-1.6 hPa/3h), with a wind-direction correction and a
-summer/winter adjustment for northerly winds. References: the widely
-reproduced Beteljuice/emontnemery implementations of the original dial.
+Structure follows the canonical 'beteljuice' digitization used by nearly all
+modern ports: sea-level pressure (wind- and season-adjusted) is binned into
+22 steps across 950-1050 hPa, and a TREND-SPECIFIC array (rising / steady /
+falling, 3h trend, +/-1.6 hPa thresholds) maps the bin to one of 26 forecast
+texts. Note the trend-specific arrays are what make rising-at-high-pressure
+settled and falling-at-low-pressure stormy — single linear formulas get the
+rising branch physically backwards (caught by tests/test_zambretti.py).
 
-Two scored variants:
-- 'faithful': Z number -> forecast text -> committed text->class map (in
-  prose_mapping terms: fair / unsettled / precipitating), deterministic.
-- 'calibrated': empirical event frequency per Z number measured on TRAIN
-  years — the fair probabilistic comparison (fit in baselines/fit.py).
+Scored two ways:
+- 'faithful': text -> committed class map (fair/unsettled/precip/stormy).
+- 'calibrated': empirical event frequency per Z number fit on train years —
+  the fair probabilistic comparison.
 """
 
 from __future__ import annotations
@@ -34,57 +35,65 @@ ZAMBRETTI_TEXT = {
     26: "Stormy, much rain",
 }
 
-# committed text -> conditions-class map (0 fair, 1 unsettled, 2 precip/stormy)
+# committed text -> class map (0 fair, 1 unsettled, 2 precipitating);
+# Z >= 25 additionally maps to "stormy" in the 4-class comparison
 Z_TO_CLASS = {z: (0 if z <= 9 else 1 if z <= 17 else 2)
               for z in range(1, 27)}
-# Z >= 25 maps to "stormy" for the 4-class comparison
 Z_TO_CLASS4 = {z: (0 if z <= 9 else 1 if z <= 17 else 2 if z <= 24 else 3)
                for z in range(1, 27)}
 
+BARO_BOTTOM, BARO_TOP = 950.0, 1050.0
+_STEP = (BARO_TOP - BARO_BOTTOM) / 22.0
+
 FALLING_THRESH = -1.6  # hPa per 3h
 RISING_THRESH = 1.6
+
+# forecast-text index (0-based) per pressure bin 0-21, per trend
+_RISE = [25, 25, 25, 24, 24, 19, 16, 12, 11, 9, 8, 6, 5, 2, 1, 1,
+         0, 0, 0, 0, 0, 0]
+_STEADY = [25, 25, 25, 25, 25, 25, 23, 23, 22, 18, 15, 13, 10, 4, 1, 1,
+           0, 0, 0, 0, 0, 0]
+_FALL = [25, 25, 25, 25, 25, 25, 25, 25, 23, 23, 21, 20, 17, 14, 7, 3,
+         1, 1, 1, 0, 0, 0]
+
+# wind-direction pressure adjustment, % of the 100 hPa range, 16 sectors N=0
+# (southerlies depress effective pressure -> worse forecast)
+_WIND_ADJ_PCT = [6.0, 5.0, 5.0, 2.0, -0.5, -2.0, -5.0, -8.5,
+                 -12.0, -10.0, -6.0, -4.5, -3.0, -0.5, 1.5, 3.0]
 
 
 def zambretti_z(slp_hpa: np.ndarray, d3h_hpa: np.ndarray,
                 wind_sector16: np.ndarray, month: np.ndarray,
                 lat: np.ndarray) -> np.ndarray:
     """Vectorized Z number 1-26 (NaN where pressure or trend missing)."""
-    p = np.asarray(slp_hpa, dtype=float)
+    p = np.asarray(slp_hpa, dtype=float).copy()
     d = np.asarray(d3h_hpa, dtype=float)
+    w = np.asarray(wind_sector16, dtype=float)
+    m = np.asarray(month)
+    nh = np.asarray(lat, dtype=float) >= 0
 
-    z = np.full(p.shape, np.nan)
+    # wind adjustment (no adjustment for calm/missing direction)
+    has_w = ~np.isnan(w)
+    adj = np.zeros_like(p)
+    adj[has_w] = np.take(_WIND_ADJ_PCT, w[has_w].astype(int))
+    p = p + adj
+
     falling = d <= FALLING_THRESH
     rising = d >= RISING_THRESH
-    steady = ~falling & ~rising
 
-    z = np.where(falling, 127 - 0.12 * p, z)
-    z = np.where(steady, 144 - 0.13 * p, z)
-    z = np.where(rising, 185 - 0.16 * p, z)
+    # season adjustment: local summer amplifies the trend's meaning
+    summer = np.where(nh, np.isin(m, [4, 5, 6, 7, 8, 9]),
+                      np.isin(m, [10, 11, 12, 1, 2, 3]))
+    p = p + np.where(summer & rising, 7.0, 0.0)
+    p = p - np.where(summer & falling, 7.0, 0.0)
 
-    # wind correction (dial "set against wind"): traditional adjustments,
-    # sectors 0..15 with N=0. Northerly quadrants worsen, southerly improve
-    # slightly less; calm/missing (NaN sector) no adjustment.
-    w = np.asarray(wind_sector16, dtype=float)
-    adj = np.zeros_like(z)
-    with np.errstate(invalid="ignore"):
-        northerly = (w <= 2) | (w >= 14)          # NNE..N..NNW
-        easterly = (w > 2) & (w <= 6)
-        southerly = (w > 6) & (w <= 10)
-        westerly = (w > 10) & (w < 14)
-    adj[northerly & ~np.isnan(w)] += 1
-    adj[easterly & ~np.isnan(w)] += 1
-    adj[southerly & ~np.isnan(w)] -= 2
-    adj[westerly & ~np.isnan(w)] += 0
-    # summer northerly in the NH is drier; winter northerly colder/snowier
-    nh = np.asarray(lat, dtype=float) >= 0
-    summer = np.isin(np.asarray(month), [6, 7, 8]) & nh
-    winter = np.isin(np.asarray(month), [12, 1, 2]) & nh
-    adj[northerly & summer & ~np.isnan(w)] -= 1
-    adj[northerly & winter & ~np.isnan(w)] += 1
+    bins = np.clip(np.floor((p - BARO_BOTTOM) / _STEP), 0, 21)
+    bins = np.nan_to_num(bins, nan=0.0).astype(int)
 
-    z = z + adj
-    z = np.clip(np.round(z), 1, 26)
-    z[np.isnan(p) | np.isnan(d)] = np.nan
+    z = np.where(falling, np.take(_FALL, bins),
+                 np.where(rising, np.take(_RISE, bins),
+                          np.take(_STEADY, bins))).astype(float) + 1.0
+    z[np.isnan(np.asarray(slp_hpa, dtype=float)) | np.isnan(d)] = np.nan
     return z
 
 
