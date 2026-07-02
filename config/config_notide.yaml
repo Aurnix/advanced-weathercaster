@@ -1,0 +1,73 @@
+# Tide-correction ablation variant: identical to config.yaml except
+# tide_correction is OFF and dataset/artifact outputs go to _notide dirs
+# (the base split-hash directories would silently collide otherwise).
+# Keep in sync with config.yaml for everything else.
+
+paths:
+  data_root: "D:/neosager-data"
+  raw_dir: "{data_root}/raw"
+  parquet_dir: "{data_root}/parquet/hourly"
+  datasets_dir: "{data_root}/datasets_notide"
+  models_dir: "{data_root}/models_notide"
+  artifacts_dir: "{data_root}/artifacts_notide"
+  ledger: "{data_root}/ledger.jsonl"
+
+ncei:
+  base_url: "https://www.ncei.noaa.gov/data/global-hourly/access"
+  history_url: "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
+  max_workers: 5
+  retries: 3
+  connect_timeout_s: 10
+  read_timeout_s: 60
+  confirm_threshold_gb: 5.0
+
+years:
+  start: 1990
+  end: 2024
+
+splits:
+  train_years: [1990, 2016]
+  val_years: [2017, 2018]
+  calib_years: [2019, 2019]
+  test_years: [2020, 2024]
+  station_test_frac: 0.15
+  seed: 42
+  thin_hours: 3
+  purge_lead_h: 36
+
+ingest:
+  report_types_keep: ["FM-12", "FM-15", "FM-16", "SAO", "SAOSP", "S-S-A",
+                      "SY-MT", "SY-SA", "SY-AE", "SY-AU", "SA-AU", "AUTO", "AERO"]
+  qc_reject_flags: ["2", "3", "6", "7"]
+  scalar_type_priority: ["FM-15", "FM-12", "SAO", "SAOSP", "SY-SA", "SY-MT",
+                         "S-S-A", "SA-AU", "SY-AE", "SY-AU", "AUTO", "AERO", "FM-16"]
+
+labels:
+  leads_h: [6, 12, 24]
+  eval_extra_leads_h: [3, 9, 15, 18, 21, 27, 30, 33, 36]
+  window_min_coverage: 0.75
+  window_max_gap_h: 3
+  pressure_fall_hpa: 3.0
+  wind_beaufort_jump: 2
+  endpoint_tolerance_h: 1.5
+
+features:
+  tendency_hours: [1, 3, 6, 12]
+  tendency_endpoint_tol_min: 30
+  hf_window_h: 6
+  tide_correction: false            # <-- THE ablation switch
+  tide_s2_amp: 1.16
+  tide_s2_phase_h: 9.97
+  tide_s1_amp: 0.55
+  tide_s1_phase_h: 5.0
+  mask_manual_group_frac: 0.30
+  mask_cloud_only_frac: 0.15
+
+stations:
+  core_manifest: "config/stations_core50.yaml"
+  full_manifest: "config/stations_full.yaml"
+  probe_years: [1998, 2015]
+  probe_min_pressure_coverage: 0.85
+  probe_min_precip_hours: 40
+  probe_min_precip_hours_desert: 10
+  move_threshold_km: 5.0

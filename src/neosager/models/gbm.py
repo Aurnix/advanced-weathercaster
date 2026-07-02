@@ -38,12 +38,16 @@ PARAMS = dict(
 )
 
 
-def prep_matrix(df: pd.DataFrame) -> pd.DataFrame:
-    x = df[FEATURES].copy()
+def prep_matrix(df: pd.DataFrame,
+                features: list[str] | None = None) -> pd.DataFrame:
+    features = features or FEATURES
+    x = df[features].copy()
     for c in CATEGORICAL:
-        x[c] = x[c].astype("category")
+        if c in features:
+            x[c] = x[c].astype("category")
     for c in CIRCULAR_INT:
-        x[c] = x[c].fillna(-1).astype(int).astype("category")
+        if c in features:
+            x[c] = x[c].fillna(-1).astype(int).astype("category")
     return x
 
 
@@ -53,29 +57,35 @@ def station_weights(station_ids: pd.Series) -> np.ndarray:
     return w * len(w) / w.sum()
 
 
-def monotone_constraints(target: str) -> list[int] | None:
+def monotone_constraints(target: str,
+                         features: list[str] | None = None) -> list[int] | None:
     if not target.startswith(MONOTONE_TARGETS):
         return None
-    cons = [0] * len(FEATURES)
-    cons[FEATURES.index("slp")] = -1
-    cons[FEATURES.index("d3h")] = -1
+    features = features or FEATURES
+    cons = [0] * len(features)
+    for f in ("slp", "d3h"):
+        if f in features:
+            cons[features.index(f)] = -1
     return cons
 
 
 def train_binary(train: pd.DataFrame, val: pd.DataFrame, target: str,
-                 num_boost_round: int = 2000) -> lgb.Booster:
+                 num_boost_round: int = 2000,
+                 features: list[str] | None = None) -> lgb.Booster:
+    features = features or FEATURES
+    cats = [c for c in CATEGORICAL + CIRCULAR_INT if c in features]
     ok_tr = train[target].notna()
     ok_va = val[target].notna()
-    x_tr = prep_matrix(train[ok_tr.to_numpy()])
-    x_va = prep_matrix(val[ok_va.to_numpy()])
+    x_tr = prep_matrix(train[ok_tr.to_numpy()], features)
+    x_va = prep_matrix(val[ok_va.to_numpy()], features)
     params = dict(PARAMS)
-    cons = monotone_constraints(target)
+    cons = monotone_constraints(target, features)
     if cons:
         params["monotone_constraints"] = cons
     dtrain = lgb.Dataset(
         x_tr, label=train.loc[ok_tr, target].astype(int),
         weight=station_weights(train.loc[ok_tr, "station_id"]),
-        categorical_feature=CATEGORICAL + CIRCULAR_INT)
+        categorical_feature=cats)
     dval = lgb.Dataset(
         x_va, label=val.loc[ok_va, target].astype(int),
         weight=station_weights(val.loc[ok_va, "station_id"]),
@@ -106,8 +116,9 @@ def train_conditions(train: pd.DataFrame, val: pd.DataFrame, lead: int,
                      callbacks=[lgb.early_stopping(50, verbose=False)])
 
 
-def predict(booster: lgb.Booster, df: pd.DataFrame) -> np.ndarray:
-    return booster.predict(prep_matrix(df))
+def predict(booster: lgb.Booster, df: pd.DataFrame,
+            features: list[str] | None = None) -> np.ndarray:
+    return booster.predict(prep_matrix(df, features))
 
 
 def save(booster: lgb.Booster, path: Path) -> None:

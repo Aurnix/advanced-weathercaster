@@ -46,3 +46,21 @@ Running log of dataset filtering and methodology decisions, with rationale.
   crosses a year-fold boundary; station folds regime-stratified 85/15 seed
   42, committed in the manifest.
 - **Repo-local git identity** set to Arzos <kb3fkj@gmail.com>.
+
+## 2026-07-02 — Ablations (52 stations)
+
+- **Tide ablation caveat**: the pfall on/off comparison is CONFOUNDED — the
+  pfall label is defined on the corrected series in the "on" variant and the
+  uncorrected series in the "off" variant, so "off" scores against an easier,
+  partially-tide-predictable target. Only the precip rows (label unaffected
+  by tide) are a clean feature-side comparison: tide correction is a wash for
+  the GBM (-0.002 BSS), which has solar-time features and learns the tide
+  implicitly. Decision: KEEP the correction in the deploy path — a few-KB
+  table cannot learn pressure x solar-time interactions the way the GBM can,
+  and the correction is physically right and nearly free on-device.
+- **Manual inputs are the dominant skill source at short leads**: precip_6h
+  BSS 0.12 pressure-only -> 0.39 with sky/wind inputs. Distillation must
+  keep sky_state and the wind features.
+- The masking-augmented full model in pressure-only mode (BSS 0.14-0.15)
+  slightly BEATS a dedicated pressure-only model (0.12) — one model serves
+  both watch modes; no separate pressure-only artifact needed.
