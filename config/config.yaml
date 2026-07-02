@@ -36,9 +36,11 @@ splits:
 
 ingest:
   # REPORT_TYPE whitelist; SOD/SOM daily/monthly summaries would poison hourly labels
-  report_types_keep: ["FM-12", "FM-15", "FM-16", "SAO", "SAOSP", "S-S-A", "SY-MT"]
+  report_types_keep: ["FM-12", "FM-15", "FM-16", "SAO", "SAOSP", "S-S-A",
+                      "SY-MT", "SY-SA", "SY-AE", "SY-AU", "SA-AU", "AUTO", "AERO"]
   qc_reject_flags: ["2", "3", "6", "7"]     # erroneous / suspect element flags
-  scalar_type_priority: ["FM-15", "FM-12", "SAO", "SAOSP", "SY-MT", "S-S-A", "FM-16"]
+  scalar_type_priority: ["FM-15", "FM-12", "SAO", "SAOSP", "SY-SA", "SY-MT",
+                         "S-S-A", "SA-AU", "SY-AE", "SY-AU", "AUTO", "AERO", "FM-16"]
 
 labels:
   leads_h: [6, 12, 24]
