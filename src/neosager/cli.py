@@ -65,6 +65,27 @@ def cmd_coverage(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dataset(args: argparse.Namespace) -> int:
+    from .data.stations import load_manifest
+    from .dataset import build_all
+
+    cfg = load_config(args.config)
+    manifest = load_manifest(args.manifest)
+    build_all(cfg, manifest)
+    return 0
+
+
+def cmd_baselines_report(args: argparse.Namespace) -> int:
+    from .data.stations import load_manifest
+    from .eval.run_baselines import run
+
+    cfg = load_config(args.config)
+    manifest = load_manifest(args.manifest)
+    out = run(cfg, manifest, args.name)
+    print(f"report written: {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="neosager")
     p.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -81,6 +102,15 @@ def main(argv: list[str] | None = None) -> int:
     pc = sub.add_parser("coverage", help="print field-coverage diagnostics")
     pc.add_argument("--stations", default="")
     pc.set_defaults(func=cmd_coverage)
+
+    pd_ = sub.add_parser("dataset", help="build feature+label matrices")
+    pd_.add_argument("--manifest", required=True, help="stations yaml")
+    pd_.set_defaults(func=cmd_dataset)
+
+    pb = sub.add_parser("baselines-report", help="score baselines, write report")
+    pb.add_argument("--manifest", required=True)
+    pb.add_argument("--name", default="milestone1_report")
+    pb.set_defaults(func=cmd_baselines_report)
 
     args = p.parse_args(argv)
     return args.func(args)

@@ -1,0 +1,39 @@
+# Committed mapping from Sager forecast indices to predictand classes.
+# Classes: 0 fair, 1 unsettled, 2 precipitating, 3 stormy.
+# tests/test_sager.py asserts every forecast index 0-20 is mapped.
+#
+# Rationale: indices 0-2 are "Fair"; 3-5 and 19-20 are "Unsettled" without a
+# precipitation commitment; 6-18 all forecast rain/showers within the period.
+# "Stormy" is not a forecast text — it comes from the expected-velocity
+# output (gale and above), applied as an override.
+forecast_to_class:
+  0: 0    # Fair.
+  1: 0    # Fair and warmer.
+  2: 0    # Fair and cooler.
+  3: 1    # Unsettled.
+  4: 1    # Unsettled and warmer.
+  5: 1    # Unsettled and cooler.
+  6: 2    # Increasing cloudiness followed by rain or showers.
+  7: 2    # ... and warmer.
+  8: 2    # Showers.
+  9: 2    # Showers and warmer.
+  10: 2   # Showers and cooler.
+  11: 2   # Rain.
+  12: 2   # Rain and warmer.
+  13: 2   # Rain and turning cooler; improvement in 24h.
+  14: 2   # Rain or showers, improvement within 12h.
+  15: 2   # Rain or showers, improvement within 12h, cooler.
+  16: 2   # Rain or showers, improvement within 6h.
+  17: 2   # Rain or showers, improvement within 6h, cooler.
+  18: 2   # Rain or showers followed by fair within 6h, cooler.
+  19: 1   # Unsettled followed by fair.
+  20: 1   # Unsettled followed by fair within 6h, cooler.
+
+# Expected-velocity indices that imply the "stormy" class override:
+# 3 = Gale, 4 = Dangerous gale, 5 = Hurricane
+stormy_velocity_idx: [3, 4, 5]
+
+# Velocity indices mapped to the wind-increase predictand:
+# 0 = "Probably increasing.", plus gale-and-above (2=Strong, 3/4/5) which
+# from typical current winds implies a >=2 Beaufort rise.
+windup_velocity_idx: [0, 2, 3, 4, 5]
