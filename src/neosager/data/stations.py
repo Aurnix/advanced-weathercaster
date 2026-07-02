@@ -196,10 +196,10 @@ def probe_and_accept(cfg: Config, drawn: pd.DataFrame) -> pd.DataFrame:
             if not e or e["status"] != "ok":
                 rec["probe_reject"] = f"probe_year_{y}_{e['status'] if e else 'missing'}"
                 break
-            st = e["stats"]
-            press.append(st["coverage_pressure"])
-            ma1.append(st["coverage_ma1"])
-            pcp.append(st["precip_hours"])
+            st = e.get("stats", {})
+            press.append(st.get("coverage_pressure", 0.0))
+            ma1.append(st.get("coverage_ma1", 0.0))
+            pcp.append(st.get("precip_hours", 0))
         else:
             rec["probe_pressure_cov"] = round(min(press), 3)
             rec["probe_ma1_cov"] = round(min(ma1), 3)

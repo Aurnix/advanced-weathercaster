@@ -40,7 +40,10 @@ def to_hourly(reports: pd.DataFrame, year: int, cfg: IngestCfg
                         freq="h", tz="UTC")
     if reports.empty:
         hourly = pd.DataFrame(index=idx)
-        return hourly, {"hours_expected": len(idx), "hours_with_data": 0}
+        return hourly, {"hours_expected": len(idx), "hours_with_data": 0,
+                        "coverage_pressure": 0.0, "coverage_ma1": 0.0,
+                        "coverage_wind": 0.0, "coverage_sky": 0.0,
+                        "precip_hours": 0}
 
     df = reports.copy()
     df["hour"] = df["ts"].dt.round("h")
