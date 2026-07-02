@@ -39,7 +39,18 @@ def to_hourly(reports: pd.DataFrame, year: int, cfg: IngestCfg
     idx = pd.date_range(f"{year}-01-01", f"{year}-12-31 23:00",
                         freq="h", tz="UTC")
     if reports.empty:
+        # full schema even when empty — a column-less frame would poison
+        # cross-year concatenation with NaNs in the string columns
         hourly = pd.DataFrame(index=idx)
+        for c in _SCALARS + ["wind_dir_deg", "wind_speed_ms",
+                             "precip_1h_mm"]:
+            hourly[c] = np.nan
+        hourly["wind_variable"] = False
+        hourly["precip_trace"] = False
+        for c in ["aw_codes", "mw_codes", "au_precip_codes",
+                  "ga_cloud_types"]:
+            hourly[c] = ""
+        hourly["n_reports"] = 0
         return hourly, {"hours_expected": len(idx), "hours_with_data": 0,
                         "coverage_pressure": 0.0, "coverage_ma1": 0.0,
                         "coverage_wind": 0.0, "coverage_sky": 0.0,

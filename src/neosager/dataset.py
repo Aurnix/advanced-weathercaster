@@ -39,7 +39,15 @@ def load_station_hourly(cfg: Config, station: str) -> pd.DataFrame | None:
             frames.append(pd.read_parquet(p))
     if not frames:
         return None
-    return pd.concat(frames).sort_index()
+    out = pd.concat(frames).sort_index()
+    # normalize schema across years (older parquets from empty station-years
+    # can lack columns entirely -> NaNs after concat)
+    for c in ["aw_codes", "mw_codes", "au_precip_codes", "ga_cloud_types"]:
+        out[c] = out[c].fillna("") if c in out.columns else ""
+    for c, fill in [("precip_trace", False), ("wind_variable", False),
+                    ("n_reports", 0)]:
+        out[c] = out[c].fillna(fill) if c in out.columns else fill
+    return out
 
 
 def build_station_dataset(cfg: Config, station_row: dict,
