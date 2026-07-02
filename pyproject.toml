@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml>=6.0",
     "matplotlib>=3.10",
     "shapely>=2.1",
+    "tabulate>=0.9",
 ]
 
 [project.optional-dependencies]
