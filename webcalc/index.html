@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NEOSAGER Weathercaster</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; background: #f4efe4;
+         color: #222; max-width: 860px; margin: 24px auto; padding: 0 12px; }
+  h1 { font-size: 26px; margin-bottom: 0; }
+  .sub { color: #666; font-style: italic; margin-top: 2px; }
+  fieldset { border: 1px solid #b8a97e; background: #faf7ee; margin: 14px 0;
+             padding: 10px 14px; }
+  legend { font-weight: bold; padding: 0 6px; }
+  label { display: inline-block; min-width: 210px; margin: 3px 0; }
+  input[type=number], select, input[type=datetime-local] {
+      font-family: inherit; font-size: 14px; padding: 2px 4px; width: 170px; }
+  .row { margin: 4px 0; }
+  button { font-size: 17px; padding: 8px 26px; background: #2e5d34;
+           color: #fff; border: 2px outset #4a7d50; cursor: pointer; }
+  button:hover { background: #3a7342; }
+  #forecast { font-size: 20px; background: #fffdf5; border: 2px solid #2e5d34;
+              padding: 14px 18px; margin-top: 16px; min-height: 30px; }
+  table { border-collapse: collapse; margin-top: 12px; width: 100%; }
+  td, th { border: 1px solid #c9bd99; padding: 4px 8px; font-size: 14px;
+           text-align: left; }
+  .bar { background: #2e5d34; height: 12px; display: inline-block;
+         vertical-align: middle; }
+  .barbg { background: #ddd5bf; width: 220px; display: inline-block;
+           vertical-align: middle; }
+  .pct { display: inline-block; width: 44px; text-align: right;
+         font-variant-numeric: tabular-nums; }
+  .note { font-size: 12px; color: #777; }
+  footer { margin-top: 22px; font-size: 12px; color: #888;
+           border-top: 1px solid #c9bd99; padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>NEOSAGER Weathercaster</h1>
+<div class="sub">A data-driven successor to the 1942 Sager dial &mdash;
+float model, 283 stations &times; 35 years of training. Unknown entries are
+fine; the model degrades gracefully.</div>
+
+<fieldset>
+<legend>Location &amp; time</legend>
+<div class="row"><label>Latitude (&deg;N)</label>
+  <input type="number" id="lat" value="40.0" step="0.1" min="24" max="72"></div>
+<div class="row"><label>Longitude (&deg;E, negative = W)</label>
+  <input type="number" id="lon" value="-95.0" step="0.1"></div>
+<div class="row"><label>Elevation (m)</label>
+  <input type="number" id="elev" value="200" step="1"></div>
+<div class="row"><label>Observation time (local)</label>
+  <input type="datetime-local" id="when"></div>
+</fieldset>
+
+<fieldset>
+<legend>Barometer (station pressure, hPa &mdash; sea-level values also fine
+if elevation is set to 0)</legend>
+<div class="row"><label>Pressure now</label>
+  <input type="number" id="p0" value="1013.0" step="0.1"></div>
+<div class="row"><label>1 hour ago</label>
+  <input type="number" id="p1" step="0.1" placeholder="optional"></div>
+<div class="row"><label>3 hours ago</label>
+  <input type="number" id="p3" step="0.1" placeholder="optional"></div>
+<div class="row"><label>6 hours ago</label>
+  <input type="number" id="p6" step="0.1" placeholder="optional"></div>
+<div class="row"><label>12 hours ago</label>
+  <input type="number" id="p12" step="0.1" placeholder="optional"></div>
+<div class="row"><label>Temperature (&deg;C, optional)</label>
+  <input type="number" id="temp" step="0.5" placeholder="optional"></div>
+<div class="row"><label>Barometer behavior (last few h)</label>
+  <select id="hf">
+    <option value="2">steady needle</option>
+    <option value="8">somewhat restless</option>
+    <option value="20">jumpy / gusty weather</option>
+    <option value="">unknown</option>
+  </select></div>
+</fieldset>
+
+<fieldset>
+<legend>Wind &amp; sky (the Sager manual inputs)</legend>
+<div class="row"><label>Wind direction</label>
+  <select id="wdir"></select></div>
+<div class="row"><label>Wind strength</label>
+  <select id="wclass">
+    <option value="5">unknown</option>
+    <option value="0">calm</option>
+    <option value="1" selected>light (leaves rustle)</option>
+    <option value="2">moderate (branches move)</option>
+    <option value="3">strong (whole trees sway)</option>
+    <option value="4">gale</option>
+  </select></div>
+<div class="row"><label>Wind change over ~6 h</label>
+  <select id="wchg">
+    <option value="3">unknown / steady-ish</option>
+    <option value="0">backing (counter-clockwise)</option>
+    <option value="1">steady</option>
+    <option value="2">veering (clockwise)</option>
+  </select></div>
+<div class="row"><label>Prevailing wind here, this month</label>
+  <select id="wprev"></select>
+  <span class="note">(optional &mdash; local climatological wind)</span></div>
+<div class="row"><label>Sky</label>
+  <select id="sky">
+    <option value="5">unknown</option>
+    <option value="0">clear (0&ndash;1/8)</option>
+    <option value="1" selected>partly cloudy (2&ndash;4/8)</option>
+    <option value="2">mostly cloudy (5&ndash;7/8)</option>
+    <option value="3">overcast</option>
+    <option value="4">precipitating now</option>
+  </select></div>
+</fieldset>
+
+<button onclick="cast()">Cast forecast</button>
+
+<div id="forecast">&nbsp;</div>
+<table id="probs" style="display:none">
+<tr><th>Event</th><th>6 h</th><th>12 h</th><th>24 h</th></tr>
+<tr><td>Measurable precipitation</td><td id="c_precip_6h"></td>
+    <td id="c_precip_12h"></td><td id="c_precip_24h"></td></tr>
+<tr><td>Wind up &ge;2 Beaufort</td><td id="c_windup_6h"></td>
+    <td id="c_windup_12h"></td><td id="c_windup_24h"></td></tr>
+<tr><td>Pressure falls &ge;3 hPa more</td><td id="c_pfall_6h"></td>
+    <td id="c_pfall_12h"></td><td id="c_pfall_24h"></td></tr>
+</table>
+
+<footer>Model: float MLP heads distilled from the NEOSAGER gradient-boosted
+ensemble (see reports/final_report.md). Pressure chain: hydrostatic
+sea-level reduction + S1/S2 atmospheric-tide correction, then tendencies.
+Probabilities are isotonic-calibrated; on 2020&ndash;2024 held-out data the
+&ldquo;likely&rdquo; band verifies at 73&ndash;83%.</footer>
+
+<script src="neosager_float.js"></script>
+<script>
+"use strict";
+// ------- populate selects -------
+const SECTORS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW",
+                 "WSW","W","WNW","NW","NNW"];
+for (const [id, unknownLabel] of [["wdir","unknown / calm"],
+                                  ["wprev","unknown"]]) {
+  const sel = document.getElementById(id);
+  sel.add(new Option(unknownLabel, ""));
+  SECTORS.forEach((s, i) => sel.add(new Option(s, i)));
+}
+document.getElementById("when").value =
+  new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString().slice(0, 16);
+
+// ------- pressure chain (mirrors src/neosager/pressure.py) -------
+const G = 9.80665, M = 0.0289644, R = 8.31446, LAPSE = 0.0065, T0 = 288.15;
+function reduceSL(p, elevM, tempC) {
+  const ts = (tempC === null ? T0 : tempC + 273.15) + LAPSE * elevM / 2;
+  return p * Math.exp(G * M * elevM / (R * ts));
+}
+function tideHpa(latDeg, lonDeg, utcHours) {
+  const tSolar = ((utcHours + lonDeg / 15) % 24 + 24) % 24;
+  const phi = latDeg * Math.PI / 180;
+  return 1.16 * Math.cos(phi) ** 3 *
+           Math.cos(4 * Math.PI / 24 * (tSolar - 9.97))
+       + 0.55 * Math.cos(phi) *
+           Math.cos(2 * Math.PI / 24 * (tSolar - 5.0));
+}
+
+// ------- binning (mirrors models/distill.py Binner) -------
+function digit(x, edges, missingBin) {
+  if (x === null || !isFinite(x)) return missingBin;
+  let b = 0;
+  for (const e of edges) if (x >= e) b++;
+  return b;
+}
+function midBin(edges) { return Math.floor((edges.length + 1) / 2); }
+
+// ------- MLP forward + calibration LUT -------
+function headProb(head, bins) {
+  const off = []; let o = 0;
+  for (const s of NEOSAGER.bin_sizes) { off.push(o); o += s; }
+  const a1 = head.b1.slice();
+  NEOSAGER.bin_keys.forEach((k, f) => {
+    const row = head.W1[off[f] + bins[k]];
+    for (let j = 0; j < 16; j++) a1[j] += row[j];
+  });
+  for (let j = 0; j < 16; j++) if (a1[j] < 0) a1[j] = 0;
+  const a2 = head.b2.slice();
+  for (let i = 0; i < 12; i++) {
+    for (let j = 0; j < 16; j++) a2[i] += head.W2[j][i] * a1[j];
+    if (a2[i] < 0) a2[i] = 0;
+  }
+  let z = head.b3;
+  for (let i = 0; i < 12; i++) z += head.w3[i] * a2[i];
+  // calibrated LUT over z in [-8, 8]
+  const n = head.lut.length;
+  let pos = (z + NEOSAGER.z_range) / (2 * NEOSAGER.z_range) * (n - 1);
+  pos = Math.max(0, Math.min(n - 1, pos));
+  const lo = Math.floor(pos), hi = Math.min(lo + 1, n - 1), f = pos - lo;
+  return head.lut[lo] * (1 - f) + head.lut[hi] * f;
+}
+
+// ------- verbalizer (mirrors deploy/verbalize.py) -------
+const DAYPART = ["overnight","overnight","by early morning","by morning",
+                 "by midday","by afternoon","by evening","by night"];
+function daypart(localHour, lead) {
+  return DAYPART[Math.floor(((localHour + lead) % 24) / 3)];
+}
+function confidence(p) {
+  const d = Math.abs(p - 0.5);
+  return d >= 0.35 ? "High confidence." :
+         d >= 0.2 ? "Fairly confident." : "Uncertain.";
+}
+function verbalize(pr, localHour, trend3h) {
+  const p6 = pr.precip_6h, p12 = pr.precip_12h, p24 = pr.precip_24h;
+  let s1 = null;
+  for (const [p, lead, soon] of [[p6, 6, "within a few hours"],
+                                 [p12, 12, null], [p24, 24, null]]) {
+    const when = soon || daypart(localHour, lead);
+    if (p >= 0.85) { s1 = `Rain very likely ${when} (${Math.round(p*100)}%).`; break; }
+    if (p >= 0.70) { s1 = `Rain likely ${when} (${Math.round(p*100)}%).`; break; }
+  }
+  if (s1 === null) {
+    const best = Math.max(p6, p12, p24);
+    if (best >= 0.40) {
+      const lead = p6 >= 0.40 ? 6 : p12 >= 0.40 ? 12 : 24;
+      const when = lead === 6 ? "soon" : daypart(localHour, lead);
+      s1 = `Rain possible ${when} (${Math.round(best*100)}%).`;
+    } else if (best <= 0.15) {
+      s1 = (trend3h !== null && trend3h >= 0.5)
+        ? "Fair and improving." : "Fair; rain unlikely.";
+    } else {
+      s1 = "Mainly dry; a shower cannot be ruled out.";
+    }
+  }
+  const clauses = [];
+  if (pr.windup_12h >= 0.70) clauses.push("wind increasing markedly");
+  else if (pr.windup_12h >= 0.50) clauses.push("wind freshening");
+  if (pr.pfall_12h >= 0.60)
+    clauses.push("pressure falling — conditions deteriorating");
+  const s2 = clauses.length
+    ? clauses[0][0].toUpperCase() + clauses[0].slice(1)
+      + (clauses[1] ? "; " + clauses[1] : "") + "."
+    : null;
+  const sigs = Object.values(pr);
+  const strongest = sigs.reduce((a, b) =>
+    Math.abs(b - 0.5) > Math.abs(a - 0.5) ? b : a);
+  return [s1, s2, confidence(strongest)].filter(Boolean).join(" ");
+}
+
+// ------- main -------
+function val(id) {
+  const v = document.getElementById(id).value;
+  return v === "" ? null : parseFloat(v);
+}
+function cast() {
+  const lat = val("lat"), lon = val("lon") ?? 0, elev = val("elev") ?? 0;
+  const temp = val("temp");
+  const when = new Date(document.getElementById("when").value);
+  const utcH = when.getUTCHours() + when.getUTCMinutes() / 60;
+  const localH = when.getHours();
+
+  // corrected sea-level pressures at each sample age
+  function corr(p, ageH) {
+    if (p === null) return null;
+    const h = ((utcH - ageH) % 24 + 24) % 24;
+    return reduceSL(p, elev, temp) - tideHpa(lat, lon, h);
+  }
+  const c0 = corr(val("p0"), 0), c1 = corr(val("p1"), 1),
+        c3 = corr(val("p3"), 3), c6 = corr(val("p6"), 6),
+        c12 = corr(val("p12"), 12);
+  if (c0 === null) { alert("Pressure now is required."); return; }
+  const d1h = c1 === null ? null : c0 - c1;
+  const d3h = c3 === null ? null : c0 - c3;
+  const d6h = c6 === null ? null : c0 - c6;
+  const d12h = c12 === null ? null : c0 - c12;
+  const curv = (c3 !== null && c6 !== null && d3h !== null)
+    ? d3h - (c3 - c6) : null;
+
+  const E = NEOSAGER.edges;
+  const bins = {
+    slp: digit(c0, E.slp, midBin(E.slp)),
+    d1h: digit(d1h, E.d1h, midBin(E.d1h)),
+    d3h: digit(d3h, E.d3h, midBin(E.d3h)),
+    d6h: digit(d6h, E.d6h, midBin(E.d6h)),
+    d12h: digit(d12h, E.d12h, midBin(E.d12h)),
+    hf: digit(val("hf") === null ? null : val("hf") / 10, E.hf, 0),
+    curv: digit(curv, E.curv, midBin(E.curv)),
+    solar8: Math.floor((((utcH + lon / 15) % 24 + 24) % 24) / 3),
+    band: lat < 35 ? 0 : lat < 45 ? 1 : lat < 55 ? 2 : 3,
+    season: Math.floor(((when.getMonth() + 1) % 12) / 3),
+    wclass: parseInt(document.getElementById("wclass").value),
+    wchg: parseInt(document.getElementById("wchg").value),
+    sky: parseInt(document.getElementById("sky").value),
+    wind_rel: 8,
+  };
+  bins.wind_chg = bins.wchg;
+  const wd = document.getElementById("wdir").value;
+  const wp = document.getElementById("wprev").value;
+  if (wd !== "" && wp !== "") {
+    const rel = ((parseInt(wd) - parseInt(wp)) * 22.5 + 180) % 360 - 180;
+    bins.wind_rel = Math.floor((((rel + 202.5) % 360 + 360) % 360) / 45);
+  }
+
+  const probs = {};
+  for (const tgt of Object.keys(NEOSAGER.heads))
+    probs[tgt] = headProb(NEOSAGER.heads[tgt], bins);
+
+  document.getElementById("probs").style.display = "";
+  for (const [tgt, p] of Object.entries(probs)) {
+    const cell = document.getElementById("c_" + tgt);
+    if (!cell) continue;
+    const pct = Math.round(p * 100);
+    cell.innerHTML = `<span class="pct">${pct}%</span> ` +
+      `<span class="barbg"><span class="bar" style="width:${
+        Math.round(p * 220)}px"></span></span>`;
+  }
+  document.getElementById("forecast").textContent =
+    verbalize(probs, localH, d3h);
+}
+</script>
+</body>
+</html>

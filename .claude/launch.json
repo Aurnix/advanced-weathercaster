@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webcalc",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8377", "--directory", "webcalc"],
+      "port": 8377
+    }
+  ]
+}
