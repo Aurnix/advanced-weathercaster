@@ -4,7 +4,7 @@ import numpy as np
 
 from neosager.config import load_config
 from neosager.labels import build_wind_labels, band5
-from tests.test_labels import make_hourly
+from helpers import make_hourly
 
 CFG = load_config()
 

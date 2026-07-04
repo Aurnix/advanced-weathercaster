@@ -8,7 +8,7 @@ import pytest
 from neosager.config import load_config
 from neosager.features import build_features, mask_manual_inputs
 from neosager.pressure import reduce_to_sea_level, tide_hpa
-from tests.test_labels import make_hourly
+from helpers import make_hourly
 
 CFG = load_config()
 
