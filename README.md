@@ -28,7 +28,15 @@ Bulk data lives outside the repo at the `data_root` configured in `config.yaml`
 
 ## Status
 
-Milestone 1 in progress: 50-station pipeline validation + baseline scores.
+**Complete through milestone 4.** Headline results in
+[reports/final_report.md](reports/final_report.md): the learned model
+roughly doubles the 1942 Sager dial's 6h precipitation skill and quintuples
+it at 24h (BSS 0.38/0.31/0.24 vs 0.21/0.13/0.05 at 6/12/24h, 283 stations,
+2020–2024 held out), and survives compression to a 15 KB integer-only
+artifact (`deploy/infer_int_mlp.py`) with a 2.5 KB additive-table fallback.
+The Sager dial itself verifies with genuine skill inside its claimed
+12–24h envelope, decaying to zero at 36h — to our knowledge its first
+published large-scale verification.
 
 ## Reproduction
 

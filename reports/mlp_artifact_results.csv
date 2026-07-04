@@ -1,0 +1,10 @@
+target,bss_mlp_int,bytes
+precip_6h,0.332,1716
+precip_12h,0.244,1716
+precip_24h,0.158,1716
+windup_6h,0.324,1716
+windup_12h,0.353,1716
+windup_24h,0.303,1716
+pfall_6h,0.294,1716
+pfall_12h,0.229,1716
+pfall_24h,0.133,1716

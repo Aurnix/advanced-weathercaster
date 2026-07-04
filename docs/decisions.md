@@ -64,3 +64,21 @@ Running log of dataset filtering and methodology decisions, with rationale.
 - The masking-augmented full model in pressure-only mode (BSS 0.14-0.15)
   slightly BEATS a dedicated pressure-only model (0.12) — one model serves
   both watch modes; no separate pressure-only artifact needed.
+
+## 2026-07-04 — M4 final artifact decision (Option A vs B)
+
+- **Shipped: Option B, int8 MLP (15.1 KB)** — beats the additive tables on
+  all 9 heads within the 32-64 KB budget (largest gaps on pfall: 0.29 vs
+  0.19 at 6h, and windup: 0.35 vs 0.29 at 12h). Power-of-two layer scales
+  make device requantization pure bit-shifts; int8 quantization measured
+  at ~0.001 BSS cost (integer-exact evaluation, not simulated).
+- **Kept: Option A additive tables (2.5 KB)** as documented fallback — the
+  same byte class as the 1942 dial and still beats it on every precip head.
+- MLP consumes the SAME binned integer inputs as the tables, so layer 1 is
+  14 row-lookups summed (an additive table into 16 dims) — no float math
+  anywhere on device.
+- Verbal thresholds verified on artifact probabilities (cell A): "likely"
+  73-83% observed (target 70-85), "very likely" 89-94%, "unlikely" 9-10%.
+- 52-station distill_52station_report.md numbers used a 52-station
+  climatology reference for non-core stations (coarser regime fallback);
+  distill_fullscale_report.md is the corrected authoritative version.

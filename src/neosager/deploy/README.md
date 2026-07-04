@@ -1,10 +1,20 @@
 # NEOSAGER deployment spec
 
-The deployable artifact is `neosager_tables.json` (packed binary TBD in
-`artifact.py`): 9 probability heads (precip/windup/pfall × 6/12/24 h) as
-additive int8 logit tables + per-head calibrated 64-entry probability LUTs.
-`infer_int.py` is the normative integer-only reference — a Monkey C port
-should follow it line by line.
+**Primary artifact: `neosager_mlp.json` (15.1 KB)** — 9 probability heads
+(precip/windup/pfall × 6/12/24 h), each a binned-input int8 MLP
+(one-hot bins → 16 → 12 → logit) with power-of-two layer scales and the
+isotonic calibration composed into a per-head 64-entry probability LUT.
+`infer_int_mlp.py` is the normative integer-only reference. Because inputs
+are one-hot bins, layer 1 is 14 row-lookups summed — no matmul; layers 2/3
+are tiny int8 MACs with bit-shift requantization. Full 9-head refresh:
+< ~2,000 integer ops.
+
+**Fallback artifact: `neosager_tables.json` (2.5 KB)** — GAM-style additive
+int8 logit tables (`infer_int.py` reference), for extreme memory budgets;
+retains less skill (see reports/final_report.md §4) but still beats the
+1942 Sager dial on every precipitation head at the dial's own byte size.
+The sections below document the fallback's original budget; input
+conventions (bottom) are IDENTICAL for both artifacts.
 
 ## Byte budget (52-station artifact, v4)
 
