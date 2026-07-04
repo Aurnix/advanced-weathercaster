@@ -129,6 +129,18 @@ if elevation is set to 0)</legend>
     <td id="c_pfall_12h"></td><td id="c_pfall_24h"></td></tr>
 </table>
 
+<table id="windtable" style="display:none">
+<tr><th>Expected wind (max in window)</th><th>6 h</th><th>12 h</th><th>24 h</th></tr>
+<tr><td>Strong or gale (25+ mph)</td><td id="w_strong_6h"></td>
+    <td id="w_strong_12h"></td><td id="w_strong_24h"></td></tr>
+<tr><td>Gale (39+ mph)</td><td id="w_gale_6h"></td>
+    <td id="w_gale_12h"></td><td id="w_gale_24h"></td></tr>
+<tr><td>Most likely band</td><td id="w_band_6h"></td>
+    <td id="w_band_12h"></td><td id="w_band_24h"></td></tr>
+<tr><td>Direction tendency</td><td id="w_dir_6h"></td>
+    <td id="w_dir_12h"></td><td id="w_dir_24h"></td></tr>
+</table>
+
 <footer>Model: float MLP heads distilled from the NEOSAGER gradient-boosted
 ensemble (see reports/final_report.md). Pressure chain: hydrostatic
 sea-level reduction + S1/S2 atmospheric-tide correction, then tendencies.
@@ -136,6 +148,7 @@ Probabilities are isotonic-calibrated; on 2020&ndash;2024 held-out data the
 &ldquo;likely&rdquo; band verifies at 73&ndash;83%.</footer>
 
 <script src="neosager_float.js"></script>
+<script src="neosager_wind.js"></script>
 <script>
 "use strict";
 // ------- populate selects -------
@@ -200,6 +213,40 @@ function headProb(head, bins) {
   return head.lut[lo] * (1 - f) + head.lut[hi] * f;
 }
 
+// ------- wind multiclass heads (per-class calibrated, normalized) -------
+const DIR_NAMES = ["holding steady", "veering", "veering sharply",
+                   "backing", "backing sharply", "going calm/variable"];
+const BAND_NAMES = ["calm", "light", "moderate-fresh", "strong", "gale"];
+function windHeadProbs(head, bins) {
+  const off = []; let o = 0;
+  for (const s of NEOSAGER.bin_sizes) { off.push(o); o += s; }
+  const a1 = head.b1.slice();
+  NEOSAGER.bin_keys.forEach((k, f) => {
+    // W1 rows indexed identically to the main heads (same bin layout)
+    const row = head.W1[off[f] + bins[k]];
+    for (let j = 0; j < a1.length; j++) a1[j] += row[j];
+  });
+  for (let j = 0; j < a1.length; j++) if (a1[j] < 0) a1[j] = 0;
+  const a2 = head.b2.slice();
+  for (let i = 0; i < a2.length; i++) {
+    for (let j = 0; j < a1.length; j++) a2[i] += head.W2[j][i] * a1[j];
+    if (a2[i] < 0) a2[i] = 0;
+  }
+  const probs = [];
+  for (let k = 0; k < head.K; k++) {
+    let z = head.b3[k];
+    for (let i = 0; i < a2.length; i++) z += head.W3[i][k] * a2[i];
+    // per-class calibrated LUT over z in [-8, 8]
+    const lut = head.luts[k], n = lut.length;
+    let pos = (z + NEOSAGER.z_range) / (2 * NEOSAGER.z_range) * (n - 1);
+    pos = Math.max(0, Math.min(n - 1, pos));
+    const lo = Math.floor(pos), hi = Math.min(lo + 1, n - 1), f = pos - lo;
+    probs.push(lut[lo] * (1 - f) + lut[hi] * f);
+  }
+  const s = probs.reduce((a, b) => a + b, 0) || 1;
+  return probs.map(p => p / s);
+}
+
 // ------- verbalizer (mirrors deploy/verbalize.py) -------
 const DAYPART = ["overnight","overnight","by early morning","by morning",
                  "by midday","by afternoon","by evening","by night"];
@@ -234,7 +281,9 @@ function verbalize(pr, localHour, trend3h) {
     }
   }
   const clauses = [];
-  if (pr.windup_12h >= 0.70) clauses.push("wind increasing markedly");
+  if (window.WIND_SENTENCE) {           // richer wind heads available
+    clauses.push(...window.WIND_SENTENCE);
+  } else if (pr.windup_12h >= 0.70) clauses.push("wind increasing markedly");
   else if (pr.windup_12h >= 0.50) clauses.push("wind freshening");
   if (pr.pfall_12h >= 0.60)
     clauses.push("pressure falling — conditions deteriorating");
@@ -305,6 +354,39 @@ function cast() {
   const probs = {};
   for (const tgt of Object.keys(NEOSAGER.heads))
     probs[tgt] = headProb(NEOSAGER.heads[tgt], bins);
+
+  // wind-output heads (band distribution + direction tendency)
+  window.WIND_SENTENCE = null;
+  if (typeof NEOSAGER_WIND !== "undefined") {
+    document.getElementById("windtable").style.display = "";
+    const windAt = {};
+    for (const L of [6, 12, 24]) {
+      const pb = windHeadProbs(NEOSAGER_WIND.heads[`windband_${L}h`], bins);
+      const pd = windHeadProbs(NEOSAGER_WIND.heads[`winddir_${L}h`], bins);
+      const pStrong = pb[3] + pb[4];
+      const topB = pb.indexOf(Math.max(...pb));
+      const topD = pd.indexOf(Math.max(...pd));
+      windAt[L] = { pStrong, pGale: pb[4], topD, pTopD: pd[topD] };
+      document.getElementById(`w_strong_${L}h`).textContent =
+        Math.round(pStrong * 100) + "%";
+      document.getElementById(`w_gale_${L}h`).textContent =
+        Math.round(pb[4] * 100) + "%";
+      document.getElementById(`w_band_${L}h`).textContent =
+        `${BAND_NAMES[topB]} (${Math.round(pb[topB] * 100)}%)`;
+      document.getElementById(`w_dir_${L}h`).textContent =
+        `${DIR_NAMES[topD]} (${Math.round(pd[topD] * 100)}%)`;
+    }
+    const w12 = windAt[12], clauses = [];
+    if (w12.pGale >= 0.15)
+      clauses.push(`gale risk (${Math.round(w12.pGale * 100)}%)`);
+    else if (w12.pStrong >= 0.60)
+      clauses.push("strong winds (25+ mph) likely");
+    else if (w12.pStrong >= 0.30)
+      clauses.push("strong winds possible");
+    if (w12.topD >= 1 && w12.topD <= 4 && w12.pTopD >= 0.45)
+      clauses.push(`wind ${DIR_NAMES[w12.topD]}`);
+    if (clauses.length) window.WIND_SENTENCE = clauses;
+  }
 
   document.getElementById("probs").style.display = "";
   for (const [tgt, p] of Object.entries(probs)) {
