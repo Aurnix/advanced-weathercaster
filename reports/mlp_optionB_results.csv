@@ -1,0 +1,6 @@
+target,bss_mlp_int8,params,kb_int8
+precip_6h,0.331,1513,1.48
+precip_12h,0.242,1513,1.48
+precip_24h,0.157,1513,1.48
+windup_12h,0.353,1513,1.48
+pfall_12h,0.229,1513,1.48
