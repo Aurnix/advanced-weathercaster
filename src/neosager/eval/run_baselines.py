@@ -162,11 +162,11 @@ def run(cfg: Config, manifest: pd.DataFrame, report_name: str) -> Path:
                       if m != "persistence"}
             png = Path("reports") / "figures" / f"reliability_precip12_{cell_name}.png"
             reliability_figure(curves, f"precip_12h — {cell_name}",
-                               Path("D:/OneDrive/Desktop/neosager") / png)
+                               REPO_ROOT / png)
             figures.append(png)
 
     res = pd.DataFrame(rows)
-    res_path = Path("D:/OneDrive/Desktop/neosager/reports") / f"{report_name}_results.csv"
+    res_path = (REPO_ROOT / "reports") / f"{report_name}_results.csv"
     res_path.parent.mkdir(parents=True, exist_ok=True)
     res.to_csv(res_path, index=False)
 

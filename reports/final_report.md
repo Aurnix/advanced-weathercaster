@@ -1,4 +1,6 @@
-# NEOSAGER — Final Report
+# Advanced Weathercaster — Final Report
+
+*(Project codename NEOSAGER; internal package name `neosager`.)*
 
 **Question:** How much forecast skill is extractable from Sager-class
 instruments (barometer history, GPS, clock, optional human wind/sky

@@ -21,7 +21,7 @@ from .metrics import brier_skill, heidke
 from .run_baselines import empirical_rate_by_key
 from .report import write_report
 
-REPO = Path("D:/OneDrive/Desktop/neosager")
+from ..config import REPO_ROOT as REPO
 TARGETS = ["precip_6h", "precip_12h", "precip_24h", "windup_12h", "pfall_12h"]
 
 

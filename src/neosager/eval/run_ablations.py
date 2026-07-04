@@ -123,7 +123,7 @@ def run(manifest: pd.DataFrame, report_name: str) -> Path:
                      "bss": bss_on})
 
     res = pd.DataFrame(rows)
-    res.to_csv(Path("D:/OneDrive/Desktop/neosager/reports")
+    res.to_csv((REPO_ROOT / "reports")
                / f"{report_name}_results.csv", index=False)
 
     sections = []

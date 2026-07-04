@@ -33,7 +33,7 @@ from .metrics import brier_skill
 from .run_baselines import empirical_rate_by_key
 from .report import write_report
 
-REPO = Path("D:/OneDrive/Desktop/neosager")
+from ..config import REPO_ROOT as REPO
 EXTRA_LEADS = [3, 9, 15, 18, 21, 27, 30, 33, 36]
 ALL_LEADS = sorted(EXTRA_LEADS + [6, 12, 24])
 
@@ -156,7 +156,8 @@ def run(cfg: Config, manifest: pd.DataFrame, report_name: str) -> Path:
 
     # figure: overall + per-regime
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
-    ax1.plot(res["lead_h"], res["bss_gbm"], "o-", label="NEOSAGER (GBM)")
+    ax1.plot(res["lead_h"], res["bss_gbm"], "o-",
+             label="Advanced Weathercaster (GBM)")
     ax1.plot(res["lead_h"], res["bss_sager"], "s--", label="Sager (calibrated)")
     ax1.axhline(0, color="k", lw=0.8)
     ax1.set_xlabel("lead time (h)")

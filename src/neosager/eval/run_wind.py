@@ -36,7 +36,7 @@ from ..splits import example_mask
 from .metrics import heidke, peirce
 from .report import write_report
 
-REPO = Path("D:/OneDrive/Desktop/neosager")
+from ..config import REPO_ROOT as REPO
 TARGETS = {"windband": 5, "winddir": 6}
 LEADS = [6, 12, 24]
 

@@ -23,7 +23,7 @@ from .run_baselines import BINARY_TARGETS, empirical_rate_by_key, _split_cells
 from .metrics import heidke, peirce
 from .report import reliability_figure, write_report
 
-REPO = Path("D:/OneDrive/Desktop/neosager")
+from ..config import REPO_ROOT as REPO
 
 
 def run(cfg: Config, manifest: pd.DataFrame, report_name: str) -> Path:

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "neosager"
 version = "0.1.0"
-description = "Data-driven successor to the 1942 Sager Weathercaster: short-range local forecasting from Sager-class instruments, distilled to a watch-deployable artifact."
+description = "Advanced Weathercaster: a data-driven successor to the 1942 Sager Weathercaster. Short-range, NWP-free probabilistic local forecasting from barometer + GPS + manual wind/sky observations, distilled to a watch-deployable artifact. (Internal package name: neosager.)"
 requires-python = ">=3.12"
 dependencies = [
     "lightgbm>=4.6",

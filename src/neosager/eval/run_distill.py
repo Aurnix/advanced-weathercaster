@@ -20,7 +20,7 @@ from ..models.distill import (AdditiveTable, Binner, LUT_SIZE, PFALL_SPEC,
 from .metrics import brier_skill
 from .report import write_report
 
-REPO = Path("D:/OneDrive/Desktop/neosager")
+from ..config import REPO_ROOT as REPO
 TARGETS = [f"{p}_{L}h" for p in ["precip", "windup", "pfall"]
            for L in [6, 12, 24]]
 

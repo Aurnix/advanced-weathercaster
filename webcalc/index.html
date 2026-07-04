@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NEOSAGER Weathercaster</title>
+<title>Advanced Weathercaster</title>
 <style>
   body { font-family: Georgia, "Times New Roman", serif; background: #f4efe4;
          color: #222; max-width: 860px; margin: 24px auto; padding: 0 12px; }
@@ -35,10 +35,10 @@
 </style>
 </head>
 <body>
-<h1>NEOSAGER Weathercaster</h1>
-<div class="sub">A data-driven successor to the 1942 Sager dial &mdash;
-float model, 283 stations &times; 35 years of training. Unknown entries are
-fine; the model degrades gracefully.</div>
+<h1>Advanced Weathercaster</h1>
+<div class="sub">A data-driven successor to the 1942 Sager Weathercaster
+&mdash; float model, 283 stations &times; 35 years of training. Unknown
+entries are fine; the model degrades gracefully.</div>
 
 <fieldset>
 <legend>Location &amp; time</legend>
@@ -141,8 +141,8 @@ if elevation is set to 0)</legend>
     <td id="w_dir_12h"></td><td id="w_dir_24h"></td></tr>
 </table>
 
-<footer>Model: float MLP heads distilled from the NEOSAGER gradient-boosted
-ensemble (see reports/final_report.md). Pressure chain: hydrostatic
+<footer>Advanced Weathercaster &mdash; float MLP heads distilled from the
+gradient-boosted ensemble (see reports/final_report.md). Pressure chain: hydrostatic
 sea-level reduction + S1/S2 atmospheric-tide correction, then tendencies.
 Probabilities are isotonic-calibrated; on 2020&ndash;2024 held-out data the
 &ldquo;likely&rdquo; band verifies at 73&ndash;83%.</footer>
