@@ -137,6 +137,79 @@ def conditions_class(hourly: pd.DataFrame) -> pd.Series:
     return pd.Series(cls, index=hourly.index)
 
 
+# 5-band wind vocabulary matching the Sager dial's mph bands:
+# 0 calm(<0.5 m/s) / 1 light(B1-3) / 2 moderate-fresh(B4-5) /
+# 3 strong(B6-7) / 4 gale(B8+)
+def band5(speed_ms: np.ndarray) -> np.ndarray:
+    b = beaufort(speed_ms).astype(float)
+    out = np.select([b < 0, b == 0, b <= 3, b <= 5, b <= 7],
+                    [np.nan, 0, 1, 2, 3], default=4)
+    return out
+
+
+# relative-direction classes at t+L vs now:
+# 0 steady (|shift| <= 22.5 deg) / 1 veer one sector (22.5-90] /
+# 2 veer sharply (>90) / 3 back one sector / 4 back sharply /
+# 5 becomes calm or variable
+WINDDIR_CLASSES = ["steady", "veer", "veer_sharp", "back", "back_sharp",
+                   "calm_variable"]
+
+
+def build_wind_labels(hourly: pd.DataFrame, cfg: Config,
+                      leads: list[int] | None = None) -> pd.DataFrame:
+    """Sager-output-style wind predictands: windband_{L}h = MAX 5-band wind
+    class within (t, t+L] (what a sailor plans around); winddir_{L}h =
+    direction at t+L relative to now (nearest obs within tolerance).
+
+    Validity mirrors build_labels: the max-band label needs window coverage
+    (an unobserved gale must not read as calm); direction needs a usable
+    direction now and an observation near t+L."""
+    lc = cfg.labels
+    leads = leads or lc.leads_h
+    spd = hourly["wind_speed_ms"].to_numpy()
+    dirs = hourly["wind_dir_deg"].to_numpy()
+    observed = (~np.isnan(spd))
+    calm_now = spd < 0.5
+
+    out = pd.DataFrame(index=hourly.index)
+    for L in leads:
+        min_obs = int(np.ceil(lc.window_min_coverage * L))
+        n_obs = _forward_sum(observed.astype(float), L)
+        gap_bad = _gap_violation(observed, L, lc.window_max_gap_h)
+        valid = (n_obs >= min_obs) & ~gap_bad
+
+        wmax = _forward_max(spd, L)
+        band = band5(wmax)
+        band[~valid] = np.nan
+        out[f"windband_{L}h"] = band
+
+        # direction at t+L (nearest obs within +/- tolerance)
+        d = pd.Series(dirs, index=hourly.index)
+        s = pd.Series(spd, index=hourly.index)
+        d_fut = d.shift(-L)
+        s_fut = s.shift(-L)
+        tol = int(lc.endpoint_tolerance_h)
+        for k in range(1, tol + 1):
+            d_fut = d_fut.fillna(d.shift(-(L - k))).fillna(d.shift(-(L + k)))
+            s_fut = s_fut.fillna(s.shift(-(L - k))).fillna(s.shift(-(L + k)))
+        diff = (d_fut.to_numpy() - dirs + 180) % 360 - 180
+        cls = np.full(len(hourly), np.nan)
+        cls[np.abs(diff) <= 22.5] = 0
+        cls[(diff > 22.5) & (diff <= 90)] = 1
+        cls[diff > 90] = 2
+        cls[(diff < -22.5) & (diff >= -90)] = 3
+        cls[diff < -90] = 4
+        # future calm/variable: speed known but no direction
+        fut_calm = (s_fut.to_numpy() < 0.5) | (np.isnan(d_fut.to_numpy())
+                                               & ~np.isnan(s_fut.to_numpy()))
+        cls[fut_calm] = 5
+        # need a usable direction now (calm now -> relative shift undefined)
+        cls[np.isnan(dirs) | calm_now] = np.nan
+        cls[np.isnan(s_fut.to_numpy())] = np.nan
+        out[f"winddir_{L}h"] = cls
+    return out
+
+
 def build_labels(hourly: pd.DataFrame, cfg: Config,
                  leads: list[int] | None = None) -> pd.DataFrame:
     """Returns a DataFrame indexed like `hourly` with columns

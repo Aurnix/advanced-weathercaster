@@ -96,6 +96,27 @@ def train_binary(train: pd.DataFrame, val: pd.DataFrame, target: str,
                      callbacks=[lgb.early_stopping(50, verbose=False)])
 
 
+def train_multiclass(train: pd.DataFrame, val: pd.DataFrame, target: str,
+                     num_class: int,
+                     num_boost_round: int = 2000) -> lgb.Booster:
+    ok_tr = train[target].notna()
+    ok_va = val[target].notna()
+    params = dict(PARAMS, objective="multiclass", num_class=num_class)
+    dtrain = lgb.Dataset(
+        prep_matrix(train[ok_tr.to_numpy()]),
+        label=train.loc[ok_tr, target].astype(int),
+        weight=station_weights(train.loc[ok_tr, "station_id"]),
+        categorical_feature=CATEGORICAL + CIRCULAR_INT)
+    dval = lgb.Dataset(
+        prep_matrix(val[ok_va.to_numpy()]),
+        label=val.loc[ok_va, target].astype(int),
+        weight=station_weights(val.loc[ok_va, "station_id"]),
+        reference=dtrain)
+    return lgb.train(params, dtrain, num_boost_round=num_boost_round,
+                     valid_sets=[dval],
+                     callbacks=[lgb.early_stopping(50, verbose=False)])
+
+
 def train_conditions(train: pd.DataFrame, val: pd.DataFrame, lead: int,
                      num_boost_round: int = 2000) -> lgb.Booster:
     target = f"cond_{lead}h"

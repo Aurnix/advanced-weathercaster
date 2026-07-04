@@ -111,7 +111,9 @@ class SagerCaster:
         n = len(feats)
         f_idx = np.full(n, np.nan)
         v_idx = np.full(n, np.nan)
-        cache: dict[tuple, tuple[float, float]] = {}
+        d_idx = np.full(n, np.nan)   # expected-direction ring (final state
+        # for compound "X early, changing to Y" entries)
+        cache: dict[tuple, tuple[float, float, float]] = {}
         band_l = band
         trend_l = trend
         sky_l = sky.to_numpy()
@@ -129,13 +131,15 @@ class SagerCaster:
                    int(sky_l[i]))
             if key not in cache:
                 r = self.cast(*key)
-                cache[key] = (np.nan, np.nan) if r is None else (
-                    float(r[1][0]), float(r[1][-1]))
-            f_idx[i], v_idx[i] = cache[key]
+                # entry layouts: [f, dir, vel] or [f, dir1, dir2, vel]
+                cache[key] = (np.nan, np.nan, np.nan) if r is None else (
+                    float(r[1][0]), float(r[1][-1]), float(r[1][-2]))
+            f_idx[i], v_idx[i], d_idx[i] = cache[key]
 
         out = pd.DataFrame(index=feats.index)
         out["sager_forecast_idx"] = f_idx
         out["sager_velocity_idx"] = v_idx
+        out["sager_direction_idx"] = d_idx
         fmap = {int(k): v for k, v in self.mapping["forecast_to_class"].items()}
         cls = pd.Series(f_idx, index=feats.index).map(fmap)
         stormy_vel = set(self.mapping["stormy_velocity_idx"])
