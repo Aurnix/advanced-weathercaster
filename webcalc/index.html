@@ -247,9 +247,14 @@ function windHeadProbs(head, bins) {
   return probs.map(p => p / s);
 }
 
-// ------- verbalizer (mirrors deploy/verbalize.py) -------
+// ------- verbalizer v2 (mirrors deploy/verbalize.py, Sager format) -------
 const DAYPART = ["overnight","overnight","by early morning","by morning",
                  "by midday","by afternoon","by evening","by night"];
+const SECTOR8 = ["North","Northeast","East","Southeast","South","Southwest",
+                 "West","Northwest"];
+const BAND_TEXT = ["calm","light (1–12 mph)",
+                   "moderate to fresh (13–24 mph)",
+                   "strong (25–38 mph)","gale (39 mph and above)"];
 function daypart(localHour, lead) {
   return DAYPART[Math.floor(((localHour + lead) % 24) / 3)];
 }
@@ -258,43 +263,79 @@ function confidence(p) {
   return d >= 0.35 ? "High confidence." :
          d >= 0.2 ? "Fairly confident." : "Uncertain.";
 }
-function verbalize(pr, localHour, trend3h) {
-  const p6 = pr.precip_6h, p12 = pr.precip_12h, p24 = pr.precip_24h;
-  let s1 = null;
-  for (const [p, lead, soon] of [[p6, 6, "within a few hours"],
-                                 [p12, 12, null], [p24, 24, null]]) {
-    const when = soon || daypart(localHour, lead);
-    if (p >= 0.85) { s1 = `Rain very likely ${when} (${Math.round(p*100)}%).`; break; }
-    if (p >= 0.70) { s1 = `Rain likely ${when} (${Math.round(p*100)}%).`; break; }
+function weatherNarrative(p6, p12, p24, localHour, trend3h, f12) {
+  const ps = [p6, p12, p24].filter(p => p !== null && isFinite(p));
+  if (!ps.length) return ["No forecast: insufficient data", 0.5];
+  const best = Math.max(...ps);
+  const pct = ` (${Math.round(best * 100)}%)`;
+  const hi6 = p6 >= 0.70, hi12 = p12 >= 0.70, hi24 = p24 >= 0.70;
+  const laterDrops = p24 <= 0.35;
+  const strength = best >= 0.85 ? "very likely" : "likely";
+  let w;
+  if (hi6) {
+    w = laterDrops
+      ? `Rain or showers within a few hours${pct}, followed by improvement within 12 hours`
+      : (hi24 || hi12)
+        ? `Rain or showers within a few hours${pct}, continuing through the period`
+        : `Rain or showers within a few hours${pct}, gradually easing`;
+  } else if (hi12) {
+    w = laterDrops
+      ? `Rain or showers ${strength} ${daypart(localHour, 12)}${pct}, then improvement`
+      : `Increasing cloudiness followed by rain or showers ${daypart(localHour, 12)}${pct}`;
+  } else if (hi24) {
+    w = `Fair at first, rain or showers ${strength} ${daypart(localHour, 24)}${pct}`;
+  } else if (best >= 0.40) {
+    const lead = p6 >= 0.40 ? 6 : p12 >= 0.40 ? 12 : 24;
+    const when = lead === 6 ? "soon" : daypart(localHour, lead);
+    w = `Unsettled; rain or showers possible ${when}${pct}`;
+  } else if (best <= 0.15) {
+    w = (trend3h !== null && trend3h >= 0.5) ? "Fair and improving" : "Fair";
+  } else {
+    w = "Mainly fair; an isolated shower cannot be ruled out";
   }
-  if (s1 === null) {
-    const best = Math.max(p6, p12, p24);
-    if (best >= 0.40) {
-      const lead = p6 >= 0.40 ? 6 : p12 >= 0.40 ? 12 : 24;
-      const when = lead === 6 ? "soon" : daypart(localHour, lead);
-      s1 = `Rain possible ${when} (${Math.round(best*100)}%).`;
-    } else if (best <= 0.15) {
-      s1 = (trend3h !== null && trend3h >= 0.5)
-        ? "Fair and improving." : "Fair; rain unlikely.";
-    } else {
-      s1 = "Mainly dry; a shower cannot be ruled out.";
-    }
+  if (f12 !== null && f12 >= 0.6 && best > 0.15)
+    w += "; barometer still falling";
+  return [w, best];
+}
+function windClause(curSector16, bandP, dirP, w12) {
+  if (!bandP || !dirP) {
+    if (w12 === null) return null;
+    if (w12 >= 0.70) return "Wind increasing markedly";
+    if (w12 >= 0.50) return "Wind freshening";
+    return null;
   }
-  const clauses = [];
-  if (window.WIND_SENTENCE) {           // richer wind heads available
-    clauses.push(...window.WIND_SENTENCE);
-  } else if (pr.windup_12h >= 0.70) clauses.push("wind increasing markedly");
-  else if (pr.windup_12h >= 0.50) clauses.push("wind freshening");
-  if (pr.pfall_12h >= 0.60)
-    clauses.push("pressure falling — conditions deteriorating");
-  const s2 = clauses.length
-    ? clauses[0][0].toUpperCase() + clauses[0].slice(1)
-      + (clauses[1] ? "; " + clauses[1] : "") + "."
-    : null;
-  const sigs = Object.values(pr);
-  const strongest = sigs.reduce((a, b) =>
-    Math.abs(b - 0.5) > Math.abs(a - 0.5) ? b : a);
-  return [s1, s2, confidence(strongest)].filter(Boolean).join(" ");
+  const topD = dirP.indexOf(Math.max(...dirP)), pD = dirP[topD];
+  let dirTxt;
+  if (curSector16 === null) dirTxt = "Winds";
+  else {
+    const cur8 = Math.floor(curSector16 / 2);
+    if (topD === 5 && pD >= 0.45) dirTxt = "Light and variable winds";
+    else if ((topD === 1 || topD === 2) && pD >= 0.45)
+      dirTxt = `${SECTOR8[cur8]} or ${SECTOR8[(cur8 + (topD === 1 ? 1 : 2)) % 8]} winds`;
+    else if ((topD === 3 || topD === 4) && pD >= 0.45)
+      dirTxt = `${SECTOR8[cur8]} or ${SECTOR8[(cur8 - (topD === 3 ? 1 : 2) + 8) % 8]} winds`;
+    else dirTxt = `${SECTOR8[cur8]} winds`;
+  }
+  const topB = bandP.indexOf(Math.max(...bandP));
+  const pGale = bandP[4], pStrong = bandP[3] + bandP[4];
+  let bandTxt = BAND_TEXT[topB];
+  if (pGale >= 0.15 && topB < 4)
+    bandTxt += `; gale risk (${Math.round(pGale * 100)}%)`;
+  else if (pStrong >= 0.30 && topB < 3)
+    bandTxt += `, possibly ${BAND_TEXT[3]}`;
+  return `${dirTxt}, ${bandTxt}`;
+}
+function verbalize(pr, localHour, trend3h, bandP, dirP, curSector16) {
+  const [weather, headline] = weatherNarrative(
+    pr.precip_6h, pr.precip_12h, pr.precip_24h, localHour, trend3h,
+    pr.pfall_12h ?? null);
+  if (weather.startsWith("No forecast")) return "No forecast: insufficient data.";
+  const wind = windClause(curSector16 ?? null, bandP ?? null, dirP ?? null,
+                          pr.windup_12h ?? null);
+  const parts = [`Forecast for the next 12–24 hours: ${weather}.`];
+  if (wind) parts.push(`${wind}.`);
+  parts.push(confidence(headline));
+  return parts.join(" ");
 }
 
 // ------- main -------
@@ -356,19 +397,17 @@ function cast() {
     probs[tgt] = headProb(NEOSAGER.heads[tgt], bins);
 
   // wind-output heads (band distribution + direction tendency)
-  window.WIND_SENTENCE = null;
+  let bandP12 = null, dirP12 = null;
   if (typeof NEOSAGER_WIND !== "undefined") {
     document.getElementById("windtable").style.display = "";
-    const windAt = {};
     for (const L of [6, 12, 24]) {
       const pb = windHeadProbs(NEOSAGER_WIND.heads[`windband_${L}h`], bins);
       const pd = windHeadProbs(NEOSAGER_WIND.heads[`winddir_${L}h`], bins);
-      const pStrong = pb[3] + pb[4];
+      if (L === 12) { bandP12 = pb; dirP12 = pd; }
       const topB = pb.indexOf(Math.max(...pb));
       const topD = pd.indexOf(Math.max(...pd));
-      windAt[L] = { pStrong, pGale: pb[4], topD, pTopD: pd[topD] };
       document.getElementById(`w_strong_${L}h`).textContent =
-        Math.round(pStrong * 100) + "%";
+        Math.round((pb[3] + pb[4]) * 100) + "%";
       document.getElementById(`w_gale_${L}h`).textContent =
         Math.round(pb[4] * 100) + "%";
       document.getElementById(`w_band_${L}h`).textContent =
@@ -376,16 +415,6 @@ function cast() {
       document.getElementById(`w_dir_${L}h`).textContent =
         `${DIR_NAMES[topD]} (${Math.round(pd[topD] * 100)}%)`;
     }
-    const w12 = windAt[12], clauses = [];
-    if (w12.pGale >= 0.15)
-      clauses.push(`gale risk (${Math.round(w12.pGale * 100)}%)`);
-    else if (w12.pStrong >= 0.60)
-      clauses.push("strong winds (25+ mph) likely");
-    else if (w12.pStrong >= 0.30)
-      clauses.push("strong winds possible");
-    if (w12.topD >= 1 && w12.topD <= 4 && w12.pTopD >= 0.45)
-      clauses.push(`wind ${DIR_NAMES[w12.topD]}`);
-    if (clauses.length) window.WIND_SENTENCE = clauses;
   }
 
   document.getElementById("probs").style.display = "";
@@ -397,8 +426,9 @@ function cast() {
       `<span class="barbg"><span class="bar" style="width:${
         Math.round(p * 220)}px"></span></span>`;
   }
+  const curSector = wd === "" ? null : parseInt(wd);
   document.getElementById("forecast").textContent =
-    verbalize(probs, localH, d3h);
+    verbalize(probs, localH, d3h, bandP12, dirP12, curSector);
 }
 </script>
 </body>
