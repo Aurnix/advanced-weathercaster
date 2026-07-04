@@ -107,11 +107,22 @@ def build_station_dataset(cfg: Config, station_row: dict,
 
 
 def build_all(cfg: Config, manifest: pd.DataFrame,
-              leads: list[int] | None = None) -> pd.DataFrame:
+              leads: list[int] | None = None,
+              skip_existing: bool = True) -> pd.DataFrame:
+    import gc
+
+    out_root = cfg.paths.resolved("datasets_dir") / split_hash(cfg)
     results = []
     for _, row in manifest.iterrows():
+        sid = row["station_id"]
+        if skip_existing and (out_root / "train" / f"{sid}.parquet").exists():
+            results.append({"station": sid, "status": "skip"})
+            continue
         r = build_station_dataset(cfg, row.to_dict(), leads)
         results.append(r)
+        gc.collect()  # long sequential builds fragment; be explicit
+        if r["status"] == "skip":
+            continue
         print(f"  dataset {r['station']}: {r['status']} "
               f"{ {k: v for k, v in r.items() if k not in ('station', 'status')} }",
               flush=True)

@@ -82,7 +82,11 @@ def run(cfg: Config, manifest: pd.DataFrame, report_name: str) -> Path:
                                            train[tgt])
 
     print("fitting logistic regression...", flush=True)
-    logreg_preds = logreg_fit_predict(train, BINARY_TARGETS, cells)
+    # sklearn's one-hot pipeline is the memory hog of this run; 5M rows is
+    # far past the logreg learning curve plateau
+    lr_train = (train.sample(5_000_000, random_state=42)
+                if len(train) > 5_000_000 else train)
+    logreg_preds = logreg_fit_predict(lr_train, BINARY_TARGETS, cells)
 
     rows = []          # long-form results
     tripwire = []
