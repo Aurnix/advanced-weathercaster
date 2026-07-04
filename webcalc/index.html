@@ -83,12 +83,13 @@ if elevation is set to 0)</legend>
 <div class="row"><label>Wind strength</label>
   <select id="wclass">
     <option value="5">unknown</option>
-    <option value="0">calm</option>
-    <option value="1" selected>light (leaves rustle)</option>
-    <option value="2">moderate (branches move)</option>
-    <option value="3">strong (whole trees sway)</option>
-    <option value="4">gale</option>
-  </select></div>
+    <option value="0">calm (under 1 mph)</option>
+    <option value="1" selected>light (1&ndash;12 mph)</option>
+    <option value="2">moderate to fresh (13&ndash;24 mph)</option>
+    <option value="3">strong (25&ndash;38 mph)</option>
+    <option value="4">gale (39 mph and above)</option>
+  </select>
+  <span class="note">(bands per the original Sager dial vocabulary)</span></div>
 <div class="row"><label>Wind change over ~6 h</label>
   <select id="wchg">
     <option value="3">unknown / steady-ish</option>
@@ -98,7 +99,12 @@ if elevation is set to 0)</legend>
   </select></div>
 <div class="row"><label>Prevailing wind here, this month</label>
   <select id="wprev"></select>
-  <span class="note">(optional &mdash; local climatological wind)</span></div>
+  <span class="note">(what the wind usually does here)</span></div>
+<div class="row"><span class="note">Note: the model reads direction
+  <em>relative to your prevailing wind</em> (a S wind means something
+  different in Seattle vs. Miami) &mdash; set both direction fields or the
+  direction is used only via the backing/veering entry. On the watch, the
+  prevailing table ships with the device.</span></div>
 <div class="row"><label>Sky</label>
   <select id="sky">
     <option value="5">unknown</option>
